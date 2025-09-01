@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 const std = @import("std");
+const posix = std.posix;
 const xio = @import("posix-xio.zig");
 
 pub fn main() !u8 {
@@ -32,7 +33,6 @@ pub fn main() !u8 {
     var paths = std.ArrayList([]const u8).init(allocator);
     defer paths.deinit();
 
-    // Parse arguments
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
@@ -55,14 +55,10 @@ pub fn main() !u8 {
                     return 1;
                 };
             } else if (std.mem.eql(u8, arg, "--help")) {
-                xio.xwrite(1, "Usage: mkdir [OPTION]... DIRECTORY...\n") catch {};
-                xio.xwrite(1, "Create the DIRECTORY(ies), if they do not already exist.\n\n") catch {};
-                xio.xwrite(1, "  -m, --mode=MODE   set file permissions (as in chmod)\n") catch {};
-                xio.xwrite(1, "  -p, --parents     no error if existing, make parent directories as needed\n") catch {};
-                xio.xwrite(1, "      --help        display this help and exit\n\n") catch {};
-                xio.xwrite(1, "Examples:\n") catch {};
-                xio.xwrite(1, "  mkdir -p /tmp/a/b/c  Create directory /tmp/a/b/c, creating parent directories\n") catch {};
-                xio.xwrite(1, "  mkdir -m 700 dir     Create directory 'dir' with permissions 700\n") catch {};
+                try printUsage();
+                return 0;
+            } else if (std.mem.eql(u8, arg, "--version")) {
+                try printVersion();
                 return 0;
             } else if (std.mem.eql(u8, arg, "--")) {
                 i += 1;
@@ -122,12 +118,12 @@ fn createDirectory(path: []const u8, parents: bool, mode: std.posix.mode_t, allo
     if (parents) {
         try createDirectoryRecursive(path, mode, allocator);
     } else {
-        try std.fs.cwd().makePath(path);
-        // Note: Zig's makePath doesn't support mode setting yet, so we use chmod
-        if (mode != 0o755) {
-            var dir = try std.fs.cwd().openDir(path, .{});
-            defer dir.close();
-            try dir.chmod(mode);
+        // Check if directory already exists
+        if (std.fs.cwd().access(path, .{})) |_| {
+            return error.PathAlreadyExists;
+        } else |_| {
+            // Directory doesn't exist, create it with specified mode
+            try posix.mkdir(path, mode);
         }
     }
 }
@@ -162,13 +158,8 @@ fn createDirectoryRecursive(path: []const u8, mode: std.posix.mode_t, allocator:
                 return error.PathAlreadyExists;
             }
         } else |_| {
-            // Path doesn't exist, create it
-            try std.fs.cwd().makePath(full_path);
-            if (mode != 0o755) {
-                var dir = try std.fs.cwd().openDir(full_path, .{});
-                defer dir.close();
-                try dir.chmod(mode);
-            }
+            // Path doesn't exist, create it with specified mode
+            try posix.mkdir(full_path, mode);
         }
     }
 }
@@ -184,4 +175,24 @@ fn parseMode(mode_str: []const u8) !std.posix.mode_t {
     // Handle symbolic mode (e.g., "u+rwx", "g-w") - simplified version
     // For now, just support basic octal parsing
     return error.InvalidMode;
+}
+
+fn printUsage() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "Usage: mkdir [OPTION]... DIRECTORY...\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Create the DIRECTORY(ies), if they do not already exist.\n\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  -m, --mode=MODE   set file permissions (as in chmod)\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  -p, --parents     no error if existing, make parent directories as needed\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "      --help        display this help and exit\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "      --version     output version information and exit\n\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Examples:\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  mkdir -p /tmp/a/b/c  Create directory /tmp/a/b/c, creating parent directories\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  mkdir -m 700 dir     Create directory 'dir' with permissions 700\n");
+}
+
+fn printVersion() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "mkdir (zig-coreutils) 1.0.0\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Copyright (C) 2025 Dongjun \"Aurorasphere\" Kim\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "This is free software: you are free to change and redistribute it.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "There is NO WARRANTY, to the extent permitted by law.\n");
 }

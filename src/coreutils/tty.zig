@@ -83,6 +83,9 @@ pub fn main() !u8 {
             if (std.mem.eql(u8, arg, "--help")) {
                 try printUsage();
                 return 0;
+            } else if (std.mem.eql(u8, arg, "--version")) {
+                try printVersion();
+                return 0;
             } else if (std.mem.eql(u8, arg, "-s") or std.mem.eql(u8, arg, "--silent") or std.mem.eql(u8, arg, "--quiet")) {
                 try printTtyName(allocator, true);
                 return 0;
@@ -161,8 +164,17 @@ fn printUsage() !void {
     try xio.xwrite(posix.STDOUT_FILENO, "\n");
     try xio.xwrite(posix.STDOUT_FILENO, "  -s, --silent, --quiet    print nothing, only return an exit status\n");
     try xio.xwrite(posix.STDOUT_FILENO, "      --help               display this help and exit\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "      --version            output version information and exit\n");
     try xio.xwrite(posix.STDOUT_FILENO, "\n");
     try xio.xwrite(posix.STDOUT_FILENO, "Exit status:\n");
     try xio.xwrite(posix.STDOUT_FILENO, "  0  if standard input is a terminal\n");
     try xio.xwrite(posix.STDOUT_FILENO, "  1  if standard input is not a terminal\n");
+}
+
+fn printVersion() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "tty (zig-coreutils) 1.0.0\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Copyright (C) 2025 Dongjun \"Aurorasphere\" Kim\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "This is free software: you are free to change and redistribute it.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "There is NO WARRANTY, to the extent permitted by law.\n");
 }

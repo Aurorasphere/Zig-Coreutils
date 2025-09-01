@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 const std = @import("std");
+const posix = std.posix;
 const xio = @import("posix-xio.zig");
 pub fn main() !u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -39,6 +40,10 @@ pub fn main() !u8 {
             xio.xwrite(1, "Print the current working directory.\n") catch {};
             xio.xwrite(1, "  -L  use PWD from environment (default)\n") catch {};
             xio.xwrite(1, "  -P  use physical directory structure\n") catch {};
+            xio.xwrite(1, "      --version              output version information and exit\n") catch {};
+            return 0;
+        } else if (std.mem.eql(u8, arg, "--version")) {
+            try printVersion();
             return 0;
         } else {
             xio.xwrite(2, "pwd: invalid option -- ") catch {};
@@ -76,4 +81,12 @@ pub fn main() !u8 {
     xio.xwrite(1, "\n") catch {};
 
     return 0;
+}
+
+fn printVersion() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "pwd (zig-coreutils) 1.0.0\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Copyright (C) 2025 Dongjun \"Aurorasphere\" Kim\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "This is free software: you are free to change and redistribute it.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "There is NO WARRANTY, to the extent permitted by law.\n");
 }

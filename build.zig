@@ -40,6 +40,8 @@ pub fn build(b: *std.Build) void {
         "mkdir",
         "cat",
         "tty",
+        "ls",
+        "printf",
     };
 
     // Dynamic build (default)
@@ -79,20 +81,12 @@ pub fn build(b: *std.Build) void {
 
     // Static build
     if (static_build) {
-        const static_target = b.standardTargetOptions(.{
-            .default_target = .{
-                .cpu_arch = .x86_64,
-                .os_tag = .linux,
-                .abi = .musl,
-            },
-        });
-
         for (coreutils) |util_name| {
             const static_exe = b.addExecutable(.{
-                .name = b.fmt("{s}-static", .{util_name}),
+                .name = util_name,
                 .root_module = b.createModule(.{
                     .root_source_file = .{ .cwd_relative = b.fmt("src/coreutils/{s}.zig", .{util_name}) },
-                    .target = static_target,
+                    .target = target,
                     .optimize = if (release_build) .ReleaseSmall else .Debug,
                 }),
                 .single_threaded = true,

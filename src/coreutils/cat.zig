@@ -47,8 +47,14 @@ pub fn main() !u8 {
                     i += 1;
                 }
                 break;
+            } else if (std.mem.eql(u8, arg, "-")) {
+                // Single dash means stdin
+                try paths.append(arg);
             } else if (std.mem.eql(u8, arg, "--help")) {
                 try printUsage();
+                return 0;
+            } else if (std.mem.eql(u8, arg, "--version")) {
+                try printVersion();
                 return 0;
             } else if (std.mem.eql(u8, arg, "-u")) {
                 u_flag = true;
@@ -132,6 +138,15 @@ fn printUsage() !void {
     try xio.xwrite(posix.STDOUT_FILENO, "\n");
     try xio.xwrite(posix.STDOUT_FILENO, "  -u                         write bytes from input to output without delay\n");
     try xio.xwrite(posix.STDOUT_FILENO, "      --help                 display this help and exit\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "      --version              output version information and exit\n");
     try xio.xwrite(posix.STDOUT_FILENO, "\n");
     try xio.xwrite(posix.STDOUT_FILENO, "With no FILE, or when FILE is -, read standard input.\n");
+}
+
+fn printVersion() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "cat (zig-coreutils) 1.0.0\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Copyright (C) 2025 Dongjun \"Aurorasphere\" Kim\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "This is free software: you are free to change and redistribute it.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "There is NO WARRANTY, to the extent permitted by law.\n");
 }
