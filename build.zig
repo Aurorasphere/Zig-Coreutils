@@ -37,8 +37,9 @@ pub fn build(b: *std.Build) void {
         "true",
         "false",
         "pwd",
-        "ls",
         "mkdir",
+        "cat",
+        "tty",
     };
 
     // Dynamic build (default)
