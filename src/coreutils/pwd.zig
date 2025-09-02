@@ -36,11 +36,7 @@ pub fn main() !u8 {
         } else if (std.mem.eql(u8, arg, "-P")) {
             logical = false;
         } else if (std.mem.eql(u8, arg, "--help")) {
-            xio.xwrite(1, "Usage: pwd [-L|-P]\n") catch {};
-            xio.xwrite(1, "Print the current working directory.\n") catch {};
-            xio.xwrite(1, "  -L  use PWD from environment (default)\n") catch {};
-            xio.xwrite(1, "  -P  use physical directory structure\n") catch {};
-            xio.xwrite(1, "      --version              output version information and exit\n") catch {};
+            try printUsage();
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
             try printVersion();
@@ -81,6 +77,14 @@ pub fn main() !u8 {
     xio.xwrite(1, "\n") catch {};
 
     return 0;
+}
+
+fn printUsage() !void {
+    try xio.xwrite(posix.STDOUT_FILENO, "Usage: pwd [-L|-P]\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "Print the current working directory.\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  -L  use PWD from environment (default)\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "  -P  use physical directory structure\n");
+    try xio.xwrite(posix.STDOUT_FILENO, "      --version              output version information and exit\n");
 }
 
 fn printVersion() !void {

@@ -15,7 +15,14 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    // Use x86_64_v2 target for QEMU compatibility (includes SSE)
+    const target = b.standardTargetOptions(.{
+        .default_target = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .gnu,
+        },
+    });
     const optimize = b.standardOptimizeOption(.{});
 
     // Build options
@@ -42,6 +49,10 @@ pub fn build(b: *std.Build) void {
         "tty",
         "ls",
         "printf",
+        "rm",
+        "cp",
+        "chmod",
+        "mv",
     };
 
     // Dynamic build (default)

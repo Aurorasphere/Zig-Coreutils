@@ -24,14 +24,14 @@ pub const TtyNameError = error{
     Unexpected,
 };
 
-/// Get terminal name using /proc/self/fd/{fd} if available, otherwise fallback to defaults
+/// Get terminal name using multiple fallback methods for maximum compatibility
 /// Pure Zig implementation without C dependencies for POSIX compatibility
 pub fn ttynameAlloc(ally: std.mem.Allocator, fd: i32) ![]u8 {
     if (fd < 0) return TtyNameError.InvalidFd;
 
     if (!posix.isatty(fd)) return TtyNameError.NotATerminal;
 
-    // Fast path: Linux /proc filesystem
+    // Method 1: Linux /proc filesystem (if available)
     if (std.fs.accessAbsolute("/proc/self/fd", .{})) {
         const link = try std.fmt.allocPrintZ(ally, "/proc/self/fd/{d}", .{fd});
         defer ally.free(link);
@@ -49,19 +49,39 @@ pub fn ttynameAlloc(ally: std.mem.Allocator, fd: i32) ![]u8 {
             }
             return try ally.dupe(u8, target);
         } else |_| {
-            // /proc readlink failed, fallback to defaults
+            // /proc readlink failed, fallback to next method
         }
     } else |_| {
-        // /proc not available, use defaults
+        // /proc not available, try next method
     }
 
-    // Fallback: return common terminal device paths
+    // Method 2: BSD-style /dev/fd (FreeBSD, macOS)
+    if (std.fs.accessAbsolute("/dev/fd", .{})) {
+        const link = try std.fmt.allocPrintZ(ally, "/dev/fd/{d}", .{fd});
+        defer ally.free(link);
+
+        var link_buf: [4096]u8 = undefined;
+        if (std.fs.readLinkAbsolute(link, &link_buf)) |target| {
+            return try ally.dupe(u8, target);
+        } else |_| {
+            // /dev/fd readlink failed, fallback to next method
+        }
+    } else |_| {
+        // /dev/fd not available, try next method
+    }
+
+    // Method 3: Solaris-style /proc (if available)
+    // Note: Solaris /proc structure is different, so we'll skip this for now
+    // and rely on the universal fallbacks below
+
+    // Method 4: Common terminal device paths (universal fallback)
     if (std.fs.accessAbsolute("/dev/tty", .{})) {
         return try ally.dupe(u8, "/dev/tty");
     } else |_| {
         // /dev/tty not available
     }
 
+    // Method 5: Final fallback (should always work)
     return try ally.dupe(u8, "/dev/stdin");
 }
 
