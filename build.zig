@@ -15,7 +15,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    // Use x86_64_v2 target for QEMU compatibility (includes SSE)
+    // Support multiple architectures for POSIX compatibility
     const target = b.standardTargetOptions(.{
         .default_target = .{
             .cpu_arch = .x86_64,
@@ -24,6 +24,9 @@ pub fn build(b: *std.Build) void {
         },
     });
     const optimize = b.standardOptimizeOption(.{});
+
+    // Multi-architecture support option
+    const multi_arch = b.option(bool, "multi-arch", "Build for multiple architectures") orelse false;
 
     // Build options
     const static_build = b.option(bool, "static", "Build static executables") orelse false;
@@ -40,23 +43,97 @@ pub fn build(b: *std.Build) void {
 
     // Build all coreutils
     const coreutils = [_][]const u8{
-        "echo",
         "true",
         "false",
-        "pwd",
-        "mkdir",
-        "cat",
-        "tty",
-        "ls",
-        "printf",
-        "rm",
-        "cp",
-        "chmod",
-        "mv",
     };
 
+    // Supported architectures for POSIX systems
+    // Note: Some architectures may have limited support in Zig/LLVM
+    const supported_targets = [_]std.Target.Query{
+        // Linux - x86 architectures (fully supported)
+        .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .x86, .os_tag = .linux, .abi = .gnu },
+
+        // Linux - ARM architectures (fully supported)
+        .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .arm, .os_tag = .linux, .abi = .gnueabihf },
+
+        // Linux - RISC-V (good support)
+        .{ .cpu_arch = .riscv64, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .riscv32, .os_tag = .linux, .abi = .gnu },
+
+        // Linux - POWER architecture (limited support - may require additional setup)
+        .{ .cpu_arch = .powerpc64le, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .powerpc64, .os_tag = .linux, .abi = .gnu },
+        // .{ .cpu_arch = .powerpc, .os_tag = .linux, .abi = .gnu }, // 32-bit PowerPC support may be limited
+
+        // Linux - SPARC architecture (limited support - may require additional setup)
+        // .{ .cpu_arch = .sparc64, .os_tag = .linux, .abi = .gnu }, // SPARC support may be limited
+
+        // Linux - MIPS architecture (basic support)
+        .{ .cpu_arch = .mips64el, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .mips64, .os_tag = .linux, .abi = .gnu },
+        // .{ .cpu_arch = .mipsel, .os_tag = .linux, .abi = .gnu }, // 32-bit MIPS support may be limited
+        // .{ .cpu_arch = .mips, .os_tag = .linux, .abi = .gnu },
+
+        // BSD systems (well supported)
+        .{ .cpu_arch = .x86_64, .os_tag = .freebsd },
+        .{ .cpu_arch = .x86_64, .os_tag = .openbsd },
+        .{ .cpu_arch = .x86_64, .os_tag = .netbsd },
+        .{ .cpu_arch = .aarch64, .os_tag = .freebsd },
+        // .{ .cpu_arch = .sparc64, .os_tag = .freebsd }, // SPARC support may be limited
+
+        // Solaris/illumos (limited support)
+        .{ .cpu_arch = .x86_64, .os_tag = .solaris },
+        // .{ .cpu_arch = .sparc64, .os_tag = .solaris }, // SPARC support may be limited
+
+        // AIX (limited support - may require additional setup)
+        // .{ .cpu_arch = .powerpc64, .os_tag = .aix }, // AIX support may be limited
+        // .{ .cpu_arch = .powerpc, .os_tag = .aix },
+
+        // macOS (Darwin) - Apple Silicon and Intel (fully supported)
+        .{ .cpu_arch = .aarch64, .os_tag = .macos },
+        .{ .cpu_arch = .x86_64, .os_tag = .macos },
+
+        // Additional UNIX-like systems
+        .{ .cpu_arch = .x86_64, .os_tag = .dragonfly },
+        .{ .cpu_arch = .aarch64, .os_tag = .openbsd },
+        .{ .cpu_arch = .aarch64, .os_tag = .netbsd },
+    };
+
+    // Multi-architecture build
+    if (multi_arch) {
+        for (supported_targets) |target_query| {
+            const resolved_target = b.resolveTargetQuery(target_query);
+            const arch_name = @tagName(target_query.cpu_arch.?);
+            const os_name = @tagName(target_query.os_tag.?);
+
+            for (coreutils) |util_name| {
+                const exe_name = b.fmt("{s}-{s}-{s}", .{ util_name, arch_name, os_name });
+                const exe = b.addExecutable(.{
+                    .name = exe_name,
+                    .root_module = b.createModule(.{
+                        .root_source_file = .{ .cwd_relative = b.fmt("src/coreutils/{s}.zig", .{util_name}) },
+                        .target = resolved_target,
+                        .optimize = if (release_build) .ReleaseFast else optimize,
+                    }),
+                });
+
+                // Add common dependencies
+                exe.root_module.addImport("posix-xio", posix_xio);
+                exe.root_module.addOptions("coreutils_options", coreutils_options);
+
+                // Install the executable
+                b.installArtifact(exe);
+            }
+        }
+
+        // Multi-arch build step
+        const multi_arch_step = b.step("multi-arch", "Build all coreutils for multiple architectures");
+        multi_arch_step.dependOn(b.getInstallStep());
+    }
     // Dynamic build (default)
-    if (!static_build) {
+    else if (!static_build) {
         for (coreutils) |util_name| {
             const exe = b.addExecutable(.{
                 .name = util_name,
@@ -100,9 +177,9 @@ pub fn build(b: *std.Build) void {
                     .target = target,
                     .optimize = if (release_build) .ReleaseSmall else .Debug,
                 }),
-                .single_threaded = true,
-                .strip = release_build,
             });
+
+            // Strip debug info is handled by optimize mode for release builds
 
             // Add common dependencies
             static_exe.root_module.addImport("posix-xio", posix_xio);
@@ -122,9 +199,11 @@ pub fn build(b: *std.Build) void {
 
     // Test step
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/coreutils/posix-xio.zig" },
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = .{ .cwd_relative = "src/coreutils/posix-xio.zig" },
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
@@ -150,8 +229,21 @@ pub fn build(b: *std.Build) void {
     // Help step
     const help_step = b.step("help", "Show build options");
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "Available build options:" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build              - Build dynamic executables" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Dstatic     - Build static executables" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Drelease    - Build release executables" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build                    - Build dynamic executables" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Dstatic           - Build static executables" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Drelease          - Build release executables" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Dmulti-arch       - Build for multiple architectures" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  zig build -Dstatic -Drelease - Build static release executables" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "Supported architectures:" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Fully supported: x86_64, x86, aarch64, arm" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Good support: riscv64, riscv32" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Limited support: powerpc64le, powerpc64, mips64el, mips64" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Note: SPARC and AIX support may require additional setup" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "Supported operating systems:" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Linux (primary architectures)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  BSD: FreeBSD, OpenBSD, NetBSD, DragonFly BSD" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Solaris/illumos (x86_64)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  macOS (Intel and Apple Silicon)" }).step);
 }
