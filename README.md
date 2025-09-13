@@ -2,6 +2,8 @@
 
 A Zig implementation of common UNIX command-line utilities.
 
+**Currently Re-Writing EVERYTHING RIGHT NOW!** due to modification of posix-xio.zig
+
 > [!CAUTION]
 > **_work in progress_** - it may contains bugs, unoptimized implementations or stubs instead of real functionalities.
 > NOT EVERY ARCHITECHTURE/UNIX SYSTEM SUPPORTED! due to a limitation of LLVM architechture/ABI support.
@@ -36,4 +38,5 @@ Dongjun "Aurorasphere" Kim
 ## Acknowledgments
 
 This project is inspired by GNU Coreutils and aims to provide similar functionality while taking advantage of Zig's modern features and safety guarantees.
+
 
