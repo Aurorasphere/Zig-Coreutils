@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) void {
     const coreutils = [_][]const u8{
         "true",
         "false",
+        "ls",
     };
 
     // Supported architectures for POSIX systems
@@ -65,40 +66,54 @@ pub fn build(b: *std.Build) void {
         // Linux - POWER architecture (limited support - may require additional setup)
         .{ .cpu_arch = .powerpc64le, .os_tag = .linux, .abi = .gnu },
         .{ .cpu_arch = .powerpc64, .os_tag = .linux, .abi = .gnu },
-        // .{ .cpu_arch = .powerpc, .os_tag = .linux, .abi = .gnu }, // 32-bit PowerPC support may be limited
+        .{ .cpu_arch = .powerpc, .os_tag = .linux, .abi = .gnu },
 
         // Linux - SPARC architecture (limited support - may require additional setup)
-        // .{ .cpu_arch = .sparc64, .os_tag = .linux, .abi = .gnu }, // SPARC support may be limited
+        .{ .cpu_arch = .sparc64, .os_tag = .linux, .abi = .gnu },
 
         // Linux - MIPS architecture (basic support)
         .{ .cpu_arch = .mips64el, .os_tag = .linux, .abi = .gnu },
         .{ .cpu_arch = .mips64, .os_tag = .linux, .abi = .gnu },
-        // .{ .cpu_arch = .mipsel, .os_tag = .linux, .abi = .gnu }, // 32-bit MIPS support may be limited
-        // .{ .cpu_arch = .mips, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .mipsel, .os_tag = .linux, .abi = .gnu },
+        .{ .cpu_arch = .mips, .os_tag = .linux, .abi = .gnu },
+
+        // Linux - LoongArch (emerging architecture)
+        .{ .cpu_arch = .loongarch64, .os_tag = .linux, .abi = .gnu },
 
         // BSD systems (well supported)
         .{ .cpu_arch = .x86_64, .os_tag = .freebsd },
         .{ .cpu_arch = .x86_64, .os_tag = .openbsd },
         .{ .cpu_arch = .x86_64, .os_tag = .netbsd },
+        .{ .cpu_arch = .x86_64, .os_tag = .dragonfly },
         .{ .cpu_arch = .aarch64, .os_tag = .freebsd },
-        // .{ .cpu_arch = .sparc64, .os_tag = .freebsd }, // SPARC support may be limited
-
-        // Solaris/illumos (limited support)
-        .{ .cpu_arch = .x86_64, .os_tag = .solaris },
-        // .{ .cpu_arch = .sparc64, .os_tag = .solaris }, // SPARC support may be limited
-
-        // AIX (limited support - may require additional setup)
-        // .{ .cpu_arch = .powerpc64, .os_tag = .aix }, // AIX support may be limited
-        // .{ .cpu_arch = .powerpc, .os_tag = .aix },
+        .{ .cpu_arch = .aarch64, .os_tag = .openbsd },
+        .{ .cpu_arch = .aarch64, .os_tag = .netbsd },
+        .{ .cpu_arch = .sparc64, .os_tag = .freebsd },
 
         // macOS (Darwin) - Apple Silicon and Intel (fully supported)
         .{ .cpu_arch = .aarch64, .os_tag = .macos },
         .{ .cpu_arch = .x86_64, .os_tag = .macos },
 
-        // Additional UNIX-like systems
-        .{ .cpu_arch = .x86_64, .os_tag = .dragonfly },
-        .{ .cpu_arch = .aarch64, .os_tag = .openbsd },
-        .{ .cpu_arch = .aarch64, .os_tag = .netbsd },
+        // IBM AIX: POWER architecture (limited support)
+        .{ .cpu_arch = .powerpc, .os_tag = .aix, .abi = .gnu },
+        .{ .cpu_arch = .powerpc64, .os_tag = .aix, .abi = .gnu },
+        .{ .cpu_arch = .powerpc64le, .os_tag = .aix, .abi = .gnu },
+
+        // Solaris/illumos
+        .{ .cpu_arch = .sparc, .os_tag = .solaris, .abi = .gnu },
+        .{ .cpu_arch = .sparc64, .os_tag = .solaris, .abi = .gnu },
+        .{ .cpu_arch = .x86_64, .os_tag = .solaris, .abi = .gnu },
+        .{ .cpu_arch = .sparc, .os_tag = .illumos, .abi = .gnu },
+        .{ .cpu_arch = .sparc64, .os_tag = .illumos, .abi = .gnu },
+        .{ .cpu_arch = .x86_64, .os_tag = .illumos, .abi = .gnu },
+
+        // Additional embedded/specialized systems
+        .{ .cpu_arch = .x86_64, .os_tag = .freestanding },
+        .{ .cpu_arch = .aarch64, .os_tag = .freestanding },
+
+        // Haiku (BeOS successor)
+        .{ .cpu_arch = .x86_64, .os_tag = .haiku },
+        .{ .cpu_arch = .x86, .os_tag = .haiku },
     };
 
     // Multi-architecture build
@@ -238,12 +253,15 @@ pub fn build(b: *std.Build) void {
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "Supported architectures:" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Fully supported: x86_64, x86, aarch64, arm" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Good support: riscv64, riscv32" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Limited support: powerpc64le, powerpc64, mips64el, mips64" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Note: SPARC and AIX support may require additional setup" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Limited support: powerpc64le, powerpc64, powerpc, mips64el, mips64, mipsel, mips" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Experimental: sparc64, loongarch64" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Note: SPARC, POWER, and MIPS may require additional setup" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "Supported operating systems:" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Linux (primary architectures)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Linux (all supported architectures)" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  BSD: FreeBSD, OpenBSD, NetBSD, DragonFly BSD" }).step);
-    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Solaris/illumos (x86_64)" }).step);
     help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  macOS (Intel and Apple Silicon)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Solaris/illumos (x86_64, SPARC)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  AIX (POWER architecture - limited support)" }).step);
+    help_step.dependOn(&b.addSystemCommand(&.{ "echo", "  Other: Haiku, Freestanding (embedded)" }).step);
 }
